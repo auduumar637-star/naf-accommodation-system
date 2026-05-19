@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OC Works Dashboard</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, sans-serif;
+}
+
+body{
+    background:#0a1f44;
+}
+
+/* HEADER */
+header{
+    background:#061733;
+    color:#fff;
+    padding:15px;
+    text-align:center;
+}
+
+/* LAYOUT */
+.container{
+    display:flex;
+    min-height:100vh;
+}
+
+/* SIDEBAR */
+.sidebar{
+    width:250px;
+    background:#061733;
+    color:#fff;
+    padding:20px;
+    position:fixed;
+    top:0;
+    left:0;
+    height:100vh;
+    overflow-y:auto;
+}
+
+.sidebar ul{
+    margin-top:20px;
+}
+
+.sidebar li{
+    list-style:none;
+    padding:12px;
+    margin-bottom:10px;
+    background:#0a1f44;
+    cursor:pointer;
+    border-radius:5px;
+    transition:0.3s;
+}
+
+.sidebar li:hover{
+    background:#1e4fa1;
+}
+
+/* CONTENT */
+.content{
+    margin-left:250px;
+    flex:1;
+    padding:20px;
+    background:#f5f7fa;
+    min-height:100vh;
+}
+
+/* TABLE */
+table{
+    width:100%;
+    border-collapse:collapse;
+    background:#fff;
+    margin-top:15px;
+}
+
+th, td{
+    padding:10px;
+    border:1px solid #ddd;
+    text-align:center;
+}
+
+th{
+    background:#0a1f44;
+    color:#fff;
+}
+
+/* BUTTONS */
+button{
+    padding:6px 10px;
+    margin:2px;
+    border:none;
+    cursor:pointer;
+    border-radius:4px;
+}
+
+.forward{
+    background:#1e4fa1;
+    color:white;
+}
+
+.reject{
+    background:red;
+    color:white;
+}
+
+/* SECTION */
+.section{
+    display:none;
+}
+
+/* EMPTY BOX */
+.empty-box{
+    background:white;
+    padding:20px;
+    border-radius:5px;
+    margin-top:15px;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>OC Works Dashboard</h1>
+</header>
+
+<div class="container">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+
+        <h2>OC Works</h2>
+
+        <ul>
+            <li onclick="showSection('home')">Dashboard</li>
+            <li onclick="showSection('incoming')">Incoming Complaints</li>
+            <li onclick="showSection('processed')">Processed Complaints</li>
+            <li onclick="logout()">Logout</li>
+        </ul>
+
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+        <!-- HOME -->
+        <div id="home" class="section" style="display:block;">
+
+            <h2>Welcome OC Works</h2>
+
+            <div class="empty-box">
+                Manage complaints received from the Supervisor and forward approved requests to AO.
+            </div>
+
+        </div>
+
+        <!-- INCOMING -->
+        <div id="incoming" class="section">
+
+            <h2>Incoming Complaints (From Supervisor)</h2>
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Service No</th>
+                        <th>Block</th>
+                        <th>Flat Number</th>
+                        <th>Message</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody id="incomingTable"></tbody>
+
+            </table>
+
+        </div>
+
+        <!-- PROCESSED -->
+<div id="processed" class="section">
+
+    <h2>Processed Complaints</h2>
+
+    <table>
+
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Service No</th>
+                <th>Block</th>
+                <th>Flat Number</th>
+                <th>Message</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+
+        <tbody id="processedTable"></tbody>
+
+    </table>
+
+</div>
+
+    </div>
+
+</div>
+
+<script>
+
+/* ================= SAFE FETCH ================= */
+
+async function safeFetch(url, options = {}) {
+
+    try {
+
+        const res = await fetch(url, options);
+
+        const data = await res.json();
+
+        if(!res.ok){
+
+            alert(data.error || "Server Error");
+
+            throw new Error(data.error || "Error");
+
+        }
+
+        return data;
+
+    } catch(err){
+
+        console.error(err);
+
+        alert("Network or Server Error");
+
+    }
+
+}
+
+/* ================= SECTION SWITCH ================= */
+
+function showSection(id){
+
+    document.querySelectorAll(".section").forEach(sec => {
+        sec.style.display = "none";
+    });
+
+    document.getElementById(id).style.display = "block";
+
+}
+
+/* ================= LOGOUT ================= */
+
+function logout(){
+    window.location.href = "/logout";
+}
+
+/* ================= LOAD INCOMING ================= */
+
+async function loadIncoming(){
+
+    const data = await safeFetch("/oc/incoming");
+
+    if(!data) return;
+
+    let table = document.getElementById("incomingTable");
+
+    table.innerHTML = "";
+
+    if(data.length === 0){
+
+        table.innerHTML = `
+        <tr>
+            <td colspan="7">No incoming complaints</td>
+        </tr>
+        `;
+
+        return;
+
+    }
+
+    data.forEach(c => {
+
+        table.innerHTML += `
+        <tr>
+
+            <td>${c.name}</td>
+
+            <td>${c.service_number}</td>
+
+            <td>${c.block || '-'}</td>
+
+            <td>${c.flat_number || c.flat || '-'}</td>
+
+            <td>${c.message}</td>
+
+            <td>${c.status}</td>
+
+            <td>
+
+                <button class="forward"
+                    onclick="forwardComplaint(${c.id})">
+
+                    Forward to AO
+
+                </button>
+
+                <button class="reject"
+                    onclick="rejectComplaint(${c.id})">
+
+                    Reject
+
+                </button>
+
+            </td>
+
+        </tr>
+        `;
+
+    });
+
+}
+
+/* ================= FORWARD ================= */
+
+async function forwardComplaint(id){
+
+    const data = await safeFetch(
+        `/oc/forward/${id}`,
+        {
+            method:"POST"
+        }
+    );
+
+    if(!data) return;
+
+    alert(data.message || "Complaint forwarded");
+
+    loadIncoming();
+
+    loadProcessed();
+
+}
+
+/* ================= REJECT ================= */
+
+async function rejectComplaint(id){
+
+    const data = await safeFetch(
+        `/oc/reject/${id}`,
+        {
+            method:"POST"
+        }
+    );
+
+    if(!data) return;
+
+    alert(data.message || "Complaint rejected");
+
+    loadIncoming();
+
+    loadProcessed();
+
+}
+
+/* ================= PROCESSED ================= */
+
+async function loadProcessed(){
+
+    const data = await safeFetch("/oc/processed");
+
+    if(!data) return;
+
+    let table = document.getElementById("processedTable");
+
+    table.innerHTML = "";
+
+    if(data.length === 0){
+
+        table.innerHTML = `
+        <tr>
+            <td colspan="6">No processed complaints</td>
+        </tr>
+        `;
+
+        return;
+
+    }
+
+    data.forEach(c => {
+
+        table.innerHTML += `
+        <tr>
+
+            <td>${c.name}</td>
+
+            <td>${c.service_number}</td>
+
+            <td>${c.block || '-'}</td>
+
+            <td>${c.flat_number || c.flat || '-'}</td>
+
+            <td>${c.message}</td>
+
+            <td>${c.status}</td>
+
+        </tr>
+        `;
+
+    });
+
+}
+
+/* ================= INIT ================= */
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    loadIncoming();
+
+    loadProcessed();
+
+});
+
+</script>
+
+</body>
+</html>
