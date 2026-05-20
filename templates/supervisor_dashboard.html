@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Accommodation Supervisor Dashboard</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, sans-serif;
+}
+
+body{
+    background:#0a1f44;
+}
+
+/* HEADER */
+header{
+    background:#061733;
+    color:#fff;
+    padding:15px;
+    text-align:center;
+}
+
+/* LAYOUT */
+.container{
+    display:flex;
+    min-height:100vh;
+}
+
+/* SIDEBAR */
+.sidebar{
+    width:215px;
+    background:#061733;
+    color:#fff;
+    padding:20px;
+    position:fixed;
+    left:0;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+}
+
+.sidebar h2{
+    margin-bottom:20px;
+}
+
+.sidebar li{
+    list-style:none;
+    padding:12px;
+    margin-bottom:10px;
+    background:#0a1f44;
+    cursor:pointer;
+    border-radius:5px;
+    transition:0.3s;
+}
+
+.sidebar li:hover{
+    background:#1e4fa1;
+}
+
+/* CONTENT */
+.content{
+    margin-left:250px;
+    flex:1;
+    padding:20px;
+    background:#f5f7fa;
+    min-height:100vh;
+}
+
+/* TABLE */
+table{
+    width:100%;
+    border-collapse:collapse;
+    background:#fff;
+    margin-top:15px;
+}
+
+th, td{
+    padding:10px;
+    border:1px solid #ddd;
+    text-align:center;
+}
+
+th{
+    background:#0a1f44;
+    color:#fff;
+}
+
+/* BUTTONS */
+button{
+    padding:6px 12px;
+    border:none;
+    cursor:pointer;
+    border-radius:4px;
+}
+
+.forward{
+    background:#1e4fa1;
+    color:white;
+}
+
+.reject{
+    background:red;
+    color:white;
+}
+
+/* SECTIONS */
+.section{
+    display:none;
+}
+
+/* EMPTY STATE */
+.empty{
+    background:white;
+    padding:20px;
+    text-align:center;
+    margin-top:10px;
+    border-radius:5px;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Accommodation Supervisor Dashboard</h1>
+</header>
+
+<div class="container">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+
+        <h2>Supervisor</h2>
+
+        <ul>
+            <li onclick="showSection('home')">Dashboard</li>
+            <li onclick="showSection('complaints')">Incoming Complaints</li>
+            <li onclick="showSection('history')">Complaint History</li>
+            <li onclick="logout()">Logout</li>
+        </ul>
+
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+        <!-- HOME -->
+        <div id="home" class="section" style="display:block;">
+
+            <h2>Welcome Supervisor</h2>
+            <br>
+
+            <div class="empty">
+                Receive complaints from personnel and forward them to OC Works.
+            </div>
+
+        </div>
+
+        <!-- COMPLAINTS -->
+        <div id="complaints" class="section">
+
+            <h2>Incoming Complaints</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Service No</th>
+                        <th>Block</th>
+                        <th>Flat Number</th>
+                        <th>Message</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody id="complaintsTable"></tbody>
+
+            </table>
+
+        </div>
+
+        <!-- HISTORY -->
+        <div id="history" class="section">
+
+            <h2>Complaint History</h2>
+
+            <table>
+                <thead>
+    <tr>
+        <th>Name</th>
+        <th>Service No</th>
+        <th>Block</th>
+        <th>Flat Number</th>
+        <th>Message</th>
+        <th>Status</th>
+    </tr>
+</thead>
+
+                <tbody id="historyTable"></tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+/* ================= SAFE FETCH ================= */
+
+async function safeFetch(url, options = {}) {
+
+    try {
+
+        const res = await fetch(url, options);
+
+        const data = await res.json();
+
+        if (!res.ok) {
+
+            alert(data.error || "Server Error");
+            throw new Error(data.error || "Error");
+
+        }
+
+        return data;
+
+    } catch(err){
+
+        console.error(err);
+        alert("Network or Server Error");
+
+    }
+
+}
+
+/* ================= SECTION SWITCH ================= */
+
+function showSection(id){
+
+    document.querySelectorAll(".section").forEach(sec => {
+        sec.style.display = "none";
+    });
+
+    document.getElementById(id).style.display = "block";
+
+}
+
+/* ================= LOGOUT ================= */
+
+function logout(){
+    window.location.href = "/logout";
+}
+
+/* ================= LOAD COMPLAINTS ================= */
+
+async function loadComplaints(){
+
+    const data = await safeFetch("/supervisor/complaints");
+
+    if(!data) return;
+
+    const tbody = document.getElementById("complaintsTable");
+
+    tbody.innerHTML = "";
+
+    if(data.length === 0){
+
+        tbody.innerHTML = `
+        <tr>
+            <td colspan="6">No incoming complaints</td>
+        </tr>
+        `;
+
+        return;
+    }
+
+    data.forEach(c => {
+
+        tbody.innerHTML += `
+        <tr>
+
+            <td>${c.name}</td>
+
+            <td>${c.service_number}</td>
+
+            <td>${c.block || '-'}</td>
+
+            <td>${c.flat_number || c.flat || '-'}</td>
+
+            <td>${c.message}</td>
+
+            <td>
+
+                <button class="forward"
+                    onclick="forwardComplaint(${c.id})">
+
+                    Forward to OC
+
+                </button>
+
+            </td>
+
+        </tr>
+        `;
+
+    });
+
+}
+
+/* ================= FORWARD ================= */
+
+async function forwardComplaint(id){
+
+    const data = await safeFetch(
+        `/supervisor/forward/${id}`,
+        {
+            method:"POST"
+        }
+    );
+
+    if(!data) return;
+
+    alert(data.message || "Complaint forwarded");
+
+    loadComplaints();
+
+    loadHistory();
+
+}
+
+/* ================= REJECT ================= */
+
+async function rejectComplaint(id){
+
+    const data = await safeFetch(
+        `/supervisor/reject/${id}`,
+        {
+            method:"POST"
+        }
+    );
+
+    if(!data) return;
+
+    alert(data.message || "Complaint rejected");
+
+    loadComplaints();
+
+    loadHistory();
+
+}
+
+/* ================= HISTORY ================= */
+
+function loadHistory() {
+
+    fetch("/supervisor/history")
+
+    .then(res => res.json())
+
+    .then(data => {
+
+        let table = document.getElementById("historyTable");
+
+        table.innerHTML = "";
+
+        if (data.length === 0) {
+
+            table.innerHTML = `
+            <tr>
+                <td colspan="6">No complaint history available</td>
+            </tr>
+            `;
+
+            return;
+        }
+
+        data.forEach(c => {
+
+            table.innerHTML += `
+            <tr>
+
+                <td>${c.name}</td>
+
+                <td>${c.service_number}</td>
+
+                <td>${c.block || '-'}</td>
+
+                <td>${c.flat || '-'}</td>
+
+                <td>${c.message}</td>
+
+                <td>${c.status}</td>
+
+            </tr>
+            `;
+        });
+
+    })
+
+    .catch(error => {
+
+        console.error(error);
+
+        document.getElementById("historyTable").innerHTML = `
+        <tr>
+            <td colspan="6">Error loading history</td>
+        </tr>
+        `;
+    });
+}
+
+/* ================= INIT ================= */
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    loadComplaints();
+
+    loadHistory();
+
+});
+
+</script>
+
+</body>
+</html>

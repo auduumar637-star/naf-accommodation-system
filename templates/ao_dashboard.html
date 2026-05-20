@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>AO Dashboard</title>
+
+<style>
+
+body{
+    margin:0;
+    font-family:Arial;
+    display:flex;
+    height:100vh;
+    overflow:hidden;
+}
+
+/* SIDEBAR FIXED */
+.sidebar{
+    width:190px;
+    background:#0b1d2a;
+    color:white;
+    padding:20px;
+    height:100vh;
+    position:fixed;
+    left:0;
+    top:0;
+    overflow-y:auto;
+}
+
+.sidebar h2{
+    text-align:center;
+}
+
+.sidebar button{
+    width:100%;
+    padding:10px;
+    margin:5px 0;
+    background:#142f44;
+    border:none;
+    color:white;
+    cursor:pointer;
+}
+
+.sidebar button:hover{
+    background:#1e4fa1;
+}
+
+/* MAIN SCROLLABLE */
+.main{
+    margin-left:220px;
+    flex:1;
+    padding:20px;
+    background:#f4f4f4;
+    height:100vh;
+    overflow-y:auto;
+}
+
+/* TABLE */
+table{
+    width:100%;
+    border-collapse:collapse;
+    background:white;
+}
+
+th, td{
+    padding:10px;
+    border:1px solid #ddd;
+    text-align:center;
+}
+
+button.action{
+    padding:6px;
+    margin:2px;
+    cursor:pointer;
+}
+
+.hidden{
+    display:none;
+}
+
+/* EMPTY STATE */
+.empty{
+    text-align:center;
+    padding:20px;
+    color:#555;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <h2>AO Panel</h2>
+
+    <button onclick="showSection('applications')">Applications</button>
+    <button onclick="showSection('housing')">Housing</button>
+    <button onclick="showSection('complaints')">Complaints</button>
+    <button onclick="showSection('decisions')">Commander Decisions</button>
+    <button onclick="showSection('history')">History</button>
+    <button onclick="logout()">Logout</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+<!-- APPLICATIONS -->
+<div id="applications">
+    <h2>Pending Applications</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Service No</th>
+                <th>Category</th>
+                <th>Request</th>
+                <th>Assign</th>
+                <th>Deny</th>
+            </tr>
+        </thead>
+        <tbody id="appTable"></tbody>
+    </table>
+</div>
+
+<!-- HOUSING -->
+<div id="housing" class="hidden">
+    <h2>Housing</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Block</th>
+                <th>Flat</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Occupant</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="housingTable"></tbody>
+    </table>
+</div>
+
+<!-- ================= COMPLAINTS ================= -->
+<div id="complaints" class="hidden">
+
+    <h2>Complaints from OC</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Service No</th>
+                <th>Message</th>
+                <th>Forward</th>
+            </tr>
+        </thead>
+
+        <tbody id="complaintTable"></tbody>
+
+    </table>
+
+</div>
+
+
+<!-- ================= COMMANDER DECISIONS ================= -->
+<div id="decisions" class="hidden">
+
+    <h2>Commander Decisions</h2>
+
+    <table>
+
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Service No</th>
+                <th>Block</th>
+                <th>Flat Number</th>
+                <th>Complaint</th>
+                <th>Decision</th>
+            </tr>
+        </thead>
+
+        <tbody id="decisionTable"></tbody>
+
+    </table>
+
+</div>
+
+
+<!-- ================= HISTORY ================= -->
+<div id="history" class="hidden">
+
+    <h2>Application History</h2>
+
+    <button onclick="clearHistory()"
+    style="
+    margin-bottom:15px;
+    padding:10px;
+    background:red;
+    color:white;
+    border:none;
+    cursor:pointer;
+    border-radius:5px;
+    ">
+        Clear History
+    </button>
+
+    <table>
+
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Service No</th>
+                <th>Block</th>
+                <th>Status</th>
+                <th>Accommodation</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+
+        <tbody id="historyTable"></tbody>
+
+    </table>
+
+</div>
+
+<script>
+
+/* SWITCH */
+function showSection(id){
+    document.querySelectorAll(".main > div").forEach(div=>{
+        div.classList.add("hidden");
+    });
+    document.getElementById(id).classList.remove("hidden");
+}
+
+/* SAFE FETCH */
+async function safeFetch(url, options={}){
+    try{
+        const res = await fetch(url, options);
+        const data = await res.json();
+
+        if(!res.ok){
+            alert(data.error || "Error");
+            return null;
+        }
+
+        return data;
+
+    }catch(e){
+        alert("Network error");
+        return null;
+    }
+}
+
+/* APPLICATIONS */
+async function loadApplications(){
+    const data = await safeFetch("/ao/applications");
+    if(!data) return;
+
+    let table = document.getElementById("appTable");
+    table.innerHTML = "";
+
+    if(data.length === 0){
+        table.innerHTML = `<tr><td colspan="6">No pending applications</td></tr>`;
+        return;
+    }
+
+    data.forEach(app=>{
+        table.innerHTML += `
+        <tr>
+            <td>${app.name}</td>
+            <td>${app.service_number}</td>
+            <td>${app.type}</td>
+            <td>Request</td>
+            <td><button onclick="assign(${app.personnel_id},${app.id},'${app.type}')">Assign</button></td>
+            <td><button onclick="deny(${app.id})">Deny</button></td>
+        </tr>`;
+    });
+}
+
+/* HOUSING */
+async function loadHousing(){
+    const data = await safeFetch("/ao/housing");
+    if(!data) return;
+
+    let table = document.getElementById("housingTable");
+    table.innerHTML = "";
+
+    data.forEach(h=>{
+        table.innerHTML += `
+        <tr>
+            <td>${h.block}</td>
+            <td>${h.flat}</td>
+            <td>${h.type}</td>
+            <td>${h.occupied ? "Occupied" : "Vacant"}</td>
+            <td>${h.occupant || "-"}</td>
+            <td>
+                ${h.occupied
+                ? `<button onclick="checkout(${h.id})">Checkout</button>`
+                : `<button onclick="mark(${h.id})">Mark</button>`}
+            </td>
+        </tr>`;
+    });
+}
+
+async function mark(id){
+    await safeFetch(`/ao/mark-occupied/${id}`,{method:"POST"});
+    loadHousing();
+}
+
+/* COMPLAINTS */
+async function loadComplaints(){
+    const data = await safeFetch("/ao/complaints");
+    if(!data) return;
+
+    let table = document.getElementById("complaintTable");
+    table.innerHTML = "";
+
+    data.forEach(c=>{
+        table.innerHTML += `
+        <tr>
+            <td>${c.name}</td>
+            <td>${c.service_number}</td>
+            <td>${c.block}</td>
+            <td>${c.flat}</td>
+            <td>${c.message}</td>
+            <td><button onclick="forward(${c.id})">Forward</button></td>
+        </tr>`;
+    });
+}
+
+/* ================= COMMANDER DECISIONS ================= */
+
+async function loadDecisions() {
+
+    try {
+
+        const res = await fetch("/ao/decisions");
+
+        const data = await res.json();
+
+        const table = document.getElementById("decisionTable");
+
+        if (!table) {
+            console.error("decisionTable not found");
+            return;
+        }
+
+        table.innerHTML = "";
+
+        if (!data || data.length === 0) {
+
+            table.innerHTML = `
+            <tr>
+                <td colspan="6">
+                    No commander decisions yet
+                </td>
+            </tr>
+            `;
+
+            return;
+        }
+
+        data.forEach(c => {
+
+            table.innerHTML += `
+            <tr>
+
+                <td>${c.name}</td>
+
+                <td>${c.service_number}</td>
+
+                <td>${c.block || '-'}</td>
+
+                <td>${c.flat_number || '-'}</td>
+
+                <td>${c.message}</td>
+
+                <td>
+
+                    <span style="
+                        font-weight:bold;
+                        color:${c.status === 'approved' ? 'green' : 'red'};
+                    ">
+                        ${c.status}
+                    </span>
+
+                </td>
+
+            </tr>
+            `;
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        const table = document.getElementById("decisionTable");
+
+        if (table) {
+
+            table.innerHTML = `
+            <tr>
+                <td colspan="6">
+                    Error loading commander decisions
+                </td>
+            </tr>
+            `;
+        }
+    }
+}
+/* ================= CLEAR HISTORY ================= */
+
+async function clearHistory() {
+
+    const confirmClear = confirm(
+        "Are you sure you want to clear all processed history?"
+    );
+
+    if (!confirmClear) return;
+
+    const data = await safeFetch("/ao/clear-history", {
+        method: "POST"
+    });
+
+    if (!data) return;
+
+    alert(data.message);
+
+    loadHistory();
+}
+/* HISTORY */
+async function loadHistory(){
+    const data = await safeFetch("/ao/history");
+    if(!data) return;
+
+    let table = document.getElementById("historyTable");
+    table.innerHTML = "";
+
+    data.forEach(h=>{
+        table.innerHTML += `
+        <tr>
+            <td>${h.name}</td>
+            <td>${h.service_number}</td>
+            <td>${h.block}</td>
+            <td>${h.flat}</td>
+            <td>${h.date}</td>
+        </tr>`;
+    });
+}
+
+/* ACTIONS */
+async function assign(pid, aid, type){
+    const houses = await safeFetch(`/ao/houses/${type}`);
+    if(!houses || houses.length === 0){
+        alert("No houses available");
+        return;
+    }
+
+    let options = houses.map(h=>`<option value="${h.id}">${h.block} - ${h.flat}</option>`).join("");
+
+    document.body.insertAdjacentHTML("beforeend",`
+    <div id="modal" style="position:fixed;top:30%;left:40%;background:white;padding:20px;">
+        <select id="house">${options}</select>
+        <button onclick="confirmAssign(${pid})">Assign</button>
+        <button onclick="document.getElementById('modal').remove()">Cancel</button>
+    </div>`);
+}
+
+async function confirmAssign(pid){
+    let house = document.getElementById("house").value;
+
+    await safeFetch("/ao/assign",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({personnel_id:pid, accommodation_id:house})
+    });
+
+    document.getElementById("modal").remove();
+
+    loadApplications();
+    loadHousing();
+    loadHistory();
+}
+
+async function deny(id){
+    await safeFetch(`/ao/reject/${id}`,{method:"POST"});
+    loadApplications();
+}
+
+async function checkout(id){
+    await safeFetch(`/ao/checkout/${id}`,{method:"POST"});
+    loadHousing();
+}
+
+async function forward(id){
+    await safeFetch(`/ao/forward/${id}`,{method:"POST"});
+    loadComplaints();
+}
+
+function logout(){
+    window.location.href="/logout";
+}
+
+/* INIT */
+window.onload=()=>{
+    loadApplications();
+    loadHousing();
+    loadComplaints();
+    loadHistory();
+    loadDecisions();
+};
+
+</script>
+
+</body>
+</html>
